@@ -17,3 +17,7 @@ class LEDBlinker(Elaboratable):
             m.d.sync += timer.eq(timer + 1)
 
         return m
+
+from amaranth_boards.arty_z7 import ArtyZ720Platform
+
+ArtyZ720Platform().build(LEDBlinker(), do_program=True)
