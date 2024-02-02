@@ -19,5 +19,10 @@ class LEDBlinker(Elaboratable):
         return m
 
 from amaranth_boards.arty_z7 import ArtyZ720Platform
+# ArtyZ720Platform().build(LEDBlinker(), do_program=True)
 
-ArtyZ720Platform().build(LEDBlinker(), do_program=True)
+# Using PRJXRAY instead of default Vivado
+# Add AMARANTH_ENV_XRAY to environment PATH variables and set to prjxray directory
+platform = ArtyZ720Platform()
+platform.toolchain="Xray"
+platform.build(LEDBlinker(), do_program=True)
