@@ -30,35 +30,23 @@ Done
 ```
 
 ## From amahdl:
+
 ```
 Info: Running post-routing legalisation...
 
 Info: Program finished normally.
 Traceback (most recent call last):
-  File "/usr/local/bin/fasm2frames", line 33, in <module>
-    sys.exit(load_entry_point('prjxray==0.0.1', 'console_scripts', 'fasm2frames')())
-  File "/usr/local/bin/fasm2frames", line 25, in importlib_load_entry_point
-    return next(matches).load()
-  File "/usr/lib/python3.10/importlib/metadata/__init__.py", line 171, in load
-    module = import_module(match.group('module'))
-  File "/usr/lib/python3.10/importlib/__init__.py", line 126, in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-  File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
-  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
-  File "<frozen importlib._bootstrap>", line 992, in _find_and_load_unlocked
-  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
-  File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
-  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
-  File "<frozen importlib._bootstrap>", line 1004, in _find_and_load_unlocked
-ModuleNotFoundError: No module named 'utils'
-Traceback (most recent call last):
-  File "/home/bcheng/dev/amahdl/led_blinker/led_blinker.py", line 28, in <module>
+  File "/home/bcheng/dev/amahdl/led_blinker/led_blinker.py", line 29, in <module>
     platform.build(LEDBlinker(), do_program=True)
-  File "/home/bcheng/.local/lib/python3.10/site-packages/amaranth/build/plat.py", line 109, in build
-    products = plan.execute_local(build_dir)
-  File "/home/bcheng/.local/lib/python3.10/site-packages/amaranth/build/run.py", line 117, in execute_local
-    subprocess.check_call(["sh", f"{self.script}.sh"],
-  File "/usr/lib/python3.10/subprocess.py", line 369, in check_call
-    raise CalledProcessError(retcode, cmd)
-subprocess.CalledProcessError: Command '['sh', 'build_top.sh']' returned non-zero exit status 1.
+  File "/home/bcheng/.local/lib/python3.10/site-packages/amaranth/build/plat.py", line 113, in build
+    self.toolchain_program(products, name, **(program_opts or {}))
+  File "/home/bcheng/.local/lib/python3.10/site-packages/amaranth_boards/arty_z7.py", line 170, in toolchain_program
+    subprocess.run([xc3sprog, "-c", "jtaghs1_fast", "-p", "1", bitstream_filename], check=True)
+  File "/usr/lib/python3.10/subprocess.py", line 503, in run
+    with Popen(*popenargs, **kwargs) as process:
+  File "/usr/lib/python3.10/subprocess.py", line 971, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/usr/lib/python3.10/subprocess.py", line 1863, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'xc3sprog'
 ```
