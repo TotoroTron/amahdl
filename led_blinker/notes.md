@@ -32,7 +32,7 @@ Load SRAM: [===================================================] 100.00%
 Done
 ```
 
-## Remember to make changes in /amaranth_boards/arty_z7.py:
+## Switch toolchain from xc3sprog to openFPGALoader in /amaranth_boards/arty_z7.py : line 167
 ```
 # def toolchain_program(self, products, name, **kwargs):
 #     xc3sprog = os.environ.get("XC3SPROG", "xc3sprog")
