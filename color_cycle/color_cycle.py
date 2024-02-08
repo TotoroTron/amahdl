@@ -52,9 +52,11 @@ class ControlUnit(Elaboratable):
 
         
         # Maybe an awkwardly placed FSM but maybe will work.
+        # A totally ombinational FSM doesn't really make sense..
         # BEGIN FSM_COLOR_CYCLE
-        with m.FSM(domain="comb") as fsm_color_cycle:
+        with m.FSM(domain="") as fsm_color_cycle:
             with m.State("INIT"):
+                # No idea what this synthesizes to
                 m.next = "RED_GREEN"
                 m.d.comb += [
                     self.R.en.eq(0),
@@ -67,6 +69,9 @@ class ControlUnit(Elaboratable):
                     self.B.op.eq(0),
                     self.B.count.eq(0),
                 ]
+            with m.State("INCR_DUTY"):
+                pass
+                # m.next = 
             with m.State("RED_GREEN"):
                 with m.If(self.R.count > 0):
                     m.d.comb += [
