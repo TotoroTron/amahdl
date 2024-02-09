@@ -1,2 +1,5 @@
 # Ignore all /build/ in any directory
 **/build/
+
+# Ignore waveform files
+*.vcd
