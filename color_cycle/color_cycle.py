@@ -1,132 +1,138 @@
 from amaranth import *
-from amaranth.lib import enum
+from amaranth.lib import data, enum
 
-class BidirectionalCounter(Elaboratable):
-    def __init__(self, width):
-        self.op     = Signal()
-        self.en     = Signal()
-        self.count  = Signal(width)
+class ColorPhase(enum.Enum, shape=3):
+    RED_GREEN = 0
+    GREEN_BLUE = 1
+    BLUE_RED = 2
 
-    def elaborate(self, platform):
-        m = Module()
-        with m.If(self.op):
-            m.d.sync += self.count.eq(self.count + 1) # If op == 1, increment counter
-        with m.Else():
-            m.d.sync += self.count.eq(self.count - 1) # If op == 0, decrement counter
-        return EnableInserter(self.en)(m)
-
-class Counter(Elaboratable):
-    def __init__(self, width):
-        self.en     = Signal()
-        self.count  = Signal(width)
-
-    def elaborate(self, platform):
-        m = Module()
-        with m.If(self.en):
-            m.d.sync += self.count.eq(self.count + 1)
-        return m
+def rgb_layout(r_bits, g_bits, b_bits):
+    return data.StructLayout({
+        "red":   unsigned(r_bits),
+        "green": unsigned(g_bits),
+        "blue":  unsigned(b_bits)
+    })
 
 class ControlUnit(Elaboratable):
-    def __init__(self, width):
-        self.R = BidirectionalCounter(width)
-        self.G = BidirectionalCounter(width)
-        self.B = BidirectionalCounter(width)
-        self.duty = Counter(width)
-        self.max = Const(2**width - 1)
-        return
-
+    def __init__(self, width=8):
+        self.width      = width
+        self.r_led   = Signal()
+        self.g_led   = Signal()
+        self.b_led   = Signal()
+    
     def elaborate(self, platform):
         m = Module()
-        m.submodules.R = self.R
-        m.submodules.G = self.G
-        m.submodules.B = self.B
-        
-        # led = platform.request("rgb_led")
 
-        # Duty counter always counting up.
-        # Produce a single color frame every 0 to 255 duty cycles
-        # We want it to overflow and reset to 0.
-        m.d.comb += self.duty.en.eq(1)
-        # Todo
-        # If R/G/B.count < duty, LED = ON, else LED = OFF
+        max        = Const(2**self.width - 1)
+        rgb_led    = Signal(rgb_layout(1, 1, 1))
+        rgb_count  = Signal(rgb_layout(self.width, self.width, self.width))
+        duty       = Signal(self.width)
+        rgb_phase  = Signal(ColorPhase)
 
+        m.d.comb += [
+            self.r_led.eq(rgb_led.red),
+            self.g_led.eq(rgb_led.green),
+            self.b_led.eq(rgb_led.blue),
+        ]
+
+        # rgb_led = platform.request("rgb_led", "r")
+
+        with m.If(duty < rgb_count.red):
+            m.d.sync += rgb_led.red.eq(1)
+        with m.Else():
+            m.d.sync += rgb_led.red.eq(0)
+
+        with m.If(duty < rgb_count.green):
+            m.d.sync += rgb_led.green.eq(1)
+        with m.Else():
+            m.d.sync += rgb_led.green.eq(0)
+
+        with m.If(duty < rgb_count.blue):
+            m.d.sync += rgb_led.blue.eq(1)
+        with m.Else():
+            m.d.sync += rgb_led.blue.eq(0)
         
-        # Maybe an awkwardly placed FSM but maybe will work.
-        # A totally ombinational FSM doesn't really make sense..
+
         # BEGIN FSM_COLOR_CYCLE
-        with m.FSM(domain="") as fsm_color_cycle:
+        with m.FSM(domain="sync") as fsm_color_cycle:
             with m.State("INIT"):
-                # No idea what this synthesizes to
-                m.next = "RED_GREEN"
-                m.d.comb += [
-                    self.R.en.eq(0),
-                    self.R.op.eq(0),
-                    self.R.count.eq(self.max),
-                    self.G.en.eq(0),
-                    self.G.op.eq(0),
-                    self.G.count.eq(0),
-                    self.B.en.eq(0),
-                    self.B.op.eq(0),
-                    self.B.count.eq(0),
+                m.d.sync += [
+                    rgb_count.red.eq(max),
+                    rgb_count.green.eq(0),
+                    rgb_count.blue.eq(0),
+                    duty.eq(0),
                 ]
+                m.next = "INCR_DUTY"
             with m.State("INCR_DUTY"):
-                pass
-                # m.next = 
-            with m.State("RED_GREEN"):
-                with m.If(self.R.count > 0):
-                    m.d.comb += [
-                        self.R.en.eq(1), # Red Counter Enable
-                        self.R.op.eq(0), # Red Decrement
-                        self.G.en.eq(1), # Green Counter Enable
-                        self.G.op.eq(1), # Green Increment
-                        self.B.en.eq(0), # Blue Counter Disable
-                    ]
-                    m.next = "RED_GREEN"
+                with m.If(duty < max):
+                    m.d.sync += duty.eq(duty + 1)
+                    m.next = "INCR_DUTY"
                 with m.Else():
-                    m.next = "GREEN_BLUE"
-            with m.State("GREEN_BLUE"):
-                with m.If(self.G.count > 0):
-                    m.d.comb += [
-                        self.R.en.eq(0), # Red Counter Disable
-                        self.G.en.eq(1), # Green Counter Enable
-                        self.G.op.eq(0), # Green Decrement
-                        self.B.en.eq(1), # Blue Counter Enable
-                        self.B.op.eq(1), # Blue Increment
-                    ]
-                    m.next = "GREEN_BLUE"
-                with m.Else():
-                    m.next = "BLUE_RED"
-            with m.State("BLUE_RED"):
-                with m.If(self.B.count > 0):
-                    m.d.comb += [
-                        self.R.en.eq(1), # Red Counter Enable
-                        self.R.op.eq(1), # Red Increment
-                        self.G.en.eq(0), # Green Counter Disable
-                        self.B.en.eq(1), # Blue Counter Enable
-                        self.B.op.eq(0), # Blue Decrement
-                    ]
-                    m.next = "BLUE_RED"
-                with m.Else():
-                    m.next = "RED_GREEN"
+                    m.d.sync += duty.eq(0) # Is this statement necessary?
+                    m.next = "SHIFT_COLOR"
+            with m.State("SHIFT_COLOR"):
+                with m.Switch(rgb_phase):
+                    with m.Case(ColorPhase.RED_GREEN):
+                        with m.If(rgb_count.red > 0):
+                            m.d.sync += [
+                                rgb_count.red.eq(rgb_count.red - 1), # Decrement RED Count
+                                rgb_count.green.eq(rgb_count.green + 1), # Increment GREEN Count
+                            ]
+                        with m.Else():
+                            m.d.sync += rgb_phase.eq(ColorPhase.GREEN_BLUE)
+                    with m.Case(ColorPhase.GREEN_BLUE):
+                        with m.If(rgb_count.green > 0):
+                            m.d.sync += [
+                                rgb_count.green.eq(rgb_count.green - 1), # Decrement GREEN Count
+                                rgb_count.blue.eq(rgb_count.blue + 1), # Increment BLUE Count
+                            ]
+                        with m.Else():
+                            m.d.sync += rgb_phase.eq(ColorPhase.BLUE_RED)
+                    with m.Case(ColorPhase.BLUE_RED):
+                        with m.If(rgb_count.blue > 0):
+                            m.d.sync += [
+                                rgb_count.blue.eq(rgb_count.blue - 1), # Decrement BLUE Count
+                                rgb_count.red.eq(rgb_count.red + 1), # Increment RED Count
+                            ]
+                        with m.Else():
+                            m.d.sync += rgb_phase.eq(ColorPhase.RED_GREEN)
+                m.next = "INCR_DUTY"
         # END FSM_COLOR_CYCLE
 
         return m
 
-class ColorCycleAHDL(Elaboratable):
-    def __init__(self, width=8):
-        pass
-
-    def elaborate(self, platform):
-        m = Module()
-        return m
+# --- TEST ---
+from amaranth.sim import Simulator
 
 
-from amaranth_boards.arty_z7 import ArtyZ720Platform
-# ArtyZ720Platform().build(LEDBlinker(), do_program=True)
+dut = ControlUnit(width=8)
+def bench():
+    # Observe two full color cycles
+    for _ in range(256*256*3*2):
+        yield
 
-# Using PRJXRAY instead of default Vivado
-# Add AMARANTH_ENV_XRAY to environment PATH variables and set to prjxray directory
-# Also add PYTHONPATH and set to same prjxray directory
-platform = ArtyZ720Platform()
-platform.toolchain="Xray"
-platform.build(ColorCycleAHDL(), do_program=True)
+sim = Simulator(dut)
+sim.add_clock(1e-6) # 1 MHz
+sim.add_sync_process(bench)
+with sim.write_vcd("color_cycle.vcd"):
+    sim.run()
+# --- CONVERT ---
+from amaranth.back import verilog
+
+
+top = ControlUnit(width=8)
+with open("color_cycle.v", "w") as f:
+    f.write(verilog.convert(top, ports=[dut.r_led, dut.g_led, dut.b_led]))
+
+
+
+
+# from amaranth_boards.arty_z7 import ArtyZ720Platform
+# # ArtyZ720Platform().build(LEDBlinker(), do_program=True)
+
+# # Using PRJXRAY instead of default Vivado
+# # Add AMARANTH_ENV_XRAY to environment PATH variables and set to prjxray directory
+# # Also add PYTHONPATH and set to same prjxray directory
+# platform = ArtyZ720Platform()
+# platform.toolchain="Xray"
+# platform.build(ColorCycleAHDL(), do_program=True)
